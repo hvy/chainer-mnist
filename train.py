@@ -1,14 +1,24 @@
+import argparse
 import numpy as np
 import chainer
-from chainer import cuda, Function, gradient_check, Variable, optimizers, serializers, utils
-from chainer import Link, Chain, ChainList
 import chainer.functions as F
 import chainer.links as L
+from chainer import cuda, Function, gradient_check, Variable, optimizers, serializers, utils
+from chainer import Link, Chain, ChainList
+from chainer import serializers
+
 import data
 from models.mlp import MLP, MLPClassifier
 
-def train(x_train, x_test, y_train, y_test, epochs, batchsize):
-    model = MLPClassifier(MLP())  # Alternatively, use the build-in classifier with L.Classifier(MLP()))
+def parse_args():
+    parser = argparse.ArgumentParser('Trains a simple model. The model may be saved when the training is finished or resumed if there is a pretrained model.')
+    parser.add_argument('--save-model', action='store_true')
+    parser.add_argument('--load-model', action='store_true')
+    parser.add_argument('--epochs', type=int, default=10)
+    parser.add_argument('--batchsize', type=int, default=100)
+    return parser.parse_args()
+
+def train(model, x_train, x_test, y_train, y_test, epochs, batchsize):
     optimizer = optimizers.SGD()
     optimizer.setup(model)
     trainsize = y_train.size
@@ -23,6 +33,7 @@ def train(x_train, x_test, y_train, y_test, epochs, batchsize):
         mean_loss, mean_acc = evaluate_model(model, x_test, y_test, batchsize)
         print('Mean loss: {loss}'.format(loss=mean_loss))
         print('Mean accuracy: {acc}'.format(acc=mean_acc))
+    return model
            
 def update_auto(optimizer, model, x, t):
     # Passing the loss function (model) so that we don't have to call the model.zerograds() explicitly to reset the gradients in each iteration
@@ -59,16 +70,37 @@ def split_mnist(data, target, trainsize=60000):
     y_all = target.astype(np.int32)
     x_train, x_test = np.split(x_all, [trainsize])
     y_train, y_test = np.split(y_all, [trainsize])
-    print('MNIST data (Number of pixels): {datasize}'.format(datasize=data.size))
-    print('MNIST size: {targetsize}'.format(targetsize=target.size))
-    print('Train data: {trainsize}'.format(trainsize=x_train.size))
-    print('Test data: {testsize}'.format(testsize=x_test.size))
     return x_train, x_test, y_train, y_test
 
 if __name__ == '__main__':
-    print('Starting...')
+    args = parse_args()
+    epochs = args.epochs
+    batchsize = args.batchsize
+    save = args.save_model
+    load = args.load_model
+    print('Starting with:')
+    print('Epochs: {}'.format(epochs))
+    print('Batch size: {}'.format(batchsize))
+    print('Load pretrained mode: {}'.format(load))
+    print('Save model when finished: {}'.format(save))
+    print('Loading MNIST data...')
     data, target = load_mnist()
+    print('Loaded MNIST')
     x_train, x_test, y_train, y_test = split_mnist(data, target, trainsize=60000)
-    train(x_train, x_test, y_train, y_test, epochs=20, batchsize=100)
-    print('Done!')
+    model = MLPClassifier(MLP())  # Alternatively, use the build-in classifier with L.Classifier(MLP()))
+    filename = 'mlp.model'
+    if args.load_model is not None:
+        print('Loading pretrained model...')
+        try:
+            serializers.load_hdf5(filename, model)
+            print('Loaded pretrained model')
+        except OSError as err:
+            print('OS error: {}'.format(err))
+            print('Could not find a pretrained model. Starting from a new and randomly initialized model.')
+    model = train(model, x_train, x_test, y_train, y_test, epochs=epochs, batchsize=batchsize)
+    if args.save_model is not None:
+        print('Saving trained model...')
+        serializers.save_hdf5(filename, model)
+        print('Saved trained model {}'.format(filename))
+    print('Done')
 
