@@ -1,3 +1,4 @@
+import os
 import argparse
 import numpy as np
 import chainer
@@ -10,12 +11,15 @@ from chainer import serializers
 import data
 from models.mlp import MLP, MLPClassifier
 
+
+
 def parse_args():
     parser = argparse.ArgumentParser('Trains a simple model. The model may be saved when the training is finished or resumed if there is a pretrained model.')
     parser.add_argument('--save-model', action='store_true')
     parser.add_argument('--load-model', action='store_true')
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--batchsize', type=int, default=100)
+    parser.add_argument('--gpu', type=int, default=-1)  # Negative values to use the CPU
     return parser.parse_args()
 
 def train(model, x_train, x_test, y_train, y_test, epochs, batchsize):
@@ -24,12 +28,12 @@ def train(model, x_train, x_test, y_train, y_test, epochs, batchsize):
     trainsize = y_train.size
     for epoch in range(epochs):
         print('Epoch: {epoch}'.format(epoch=epoch))
-        # For each epoch, radomize the ordser of the data samples
+        # For each epoch, radomize the order of the data samples
         indexes = np.random.permutation(trainsize)
         for i in range(0, trainsize, batchsize):  # (start, stop, step)
-            x = Variable(x_train[indexes[i : i + batchsize]])
-            t = Variable(y_train[indexes[i : i + batchsize]])
-            update_manual(optimizer, model, x, t)
+            x = Variable(cuda.cupy.asarray(x_train[indexes[i : i + batchsize]]))
+            t = Variable(cuda.cupy.asarray(y_train[indexes[i : i + batchsize]]))
+            update_auto(optimizer, model, x, t)
         mean_loss, mean_acc = evaluate_model(model, x_test, y_test, batchsize)
         print('Mean loss: {loss}'.format(loss=mean_loss))
         print('Mean accuracy: {acc}'.format(acc=mean_acc))
@@ -50,8 +54,8 @@ def evaluate_model(model, x_test, y_test, batchsize):
     sum_acc = 0
     testsize = y_test.size
     for i in range(0, testsize, batchsize):
-        x = Variable(x_test[i : i + batchsize])
-        t = Variable(y_test[i : i + batchsize])
+        x = Variable(cuda.to_gpu(x_test[i : i + batchsize]))
+        t = Variable(cuda.to_gpu(y_test[i : i + batchsize]))
         loss = model(x, t)
         sum_loss += loss.data * batchsize
         sum_acc += model.accuracy.data * batchsize
@@ -65,7 +69,10 @@ def load_mnist():
     mnist_target = mnist['target']
     return mnist_data, mnist_target
 
+xp = cuda.cupy
+
 def split_mnist(data, target, trainsize=60000):
+    print('xp: {}'.format(xp))
     x_all = data.astype(np.float32) / 255
     y_all = target.astype(np.int32)
     x_train, x_test = np.split(x_all, [trainsize])
@@ -78,6 +85,7 @@ if __name__ == '__main__':
     batchsize = args.batchsize
     save = args.save_model
     load = args.load_model
+    gpu = args.gpu
     print('Starting with:')
     print('Epochs: {}'.format(epochs))
     print('Batch size: {}'.format(batchsize))
@@ -87,7 +95,15 @@ if __name__ == '__main__':
     data, target = load_mnist()
     print('Loaded MNIST')
     x_train, x_test, y_train, y_test = split_mnist(data, target, trainsize=60000)
-    model = MLPClassifier(MLP())  # Alternatively, use the build-in classifier with L.Classifier(MLP()))
+    model = MLP()
+    model.to_gpu()
+    model = MLPClassifier(model)  # Alternatively, use the build-in classifier with L.Classifier(MLP()))
+    if gpu >= 0:
+        print('Using GPU {}'.format(gpu))
+        cuda.check_cuda_available()
+        cuda.get_device(gpu).use()
+        model.to_gpu()
+
     filename = 'mlp.model'  # The filename of the model to load, or save
     if load:
         print('Loading pretrained model...')

@@ -11,7 +11,7 @@ class MLP(Chain):
                 l1 = L.Linear(784, 100),  # MNIST images are 28 * 28 = 784 pixels large
                 l2 = L.Linear(100, 100),
                 l3 = L.Linear(100, 10)  # 10 classes in MNIST, i.e. the numbers [0, 9], to return the scores of the ten numbers
-            )
+        )
 
     def __call__(self, x):
         """ Method that is called directly on the instance e.g. mlp = MLP() and then mlp()
