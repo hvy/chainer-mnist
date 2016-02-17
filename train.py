@@ -19,7 +19,7 @@ def train(x_train, x_test, y_train, y_test, epochs, batchsize):
         for i in range(0, trainsize, batchsize):  # (start, stop, step)
             x = Variable(x_train[indexes[i : i + batchsize]])
             t = Variable(y_train[indexes[i : i + batchsize]])
-            update_auto(optimizer, model, x, t)
+            update_manual(optimizer, model, x, t)
         mean_loss, mean_acc = evaluate_model(model, x_test, y_test, batchsize)
         print('Mean loss: {loss}'.format(loss=mean_loss))
         print('Mean accuracy: {acc}'.format(acc=mean_acc))
@@ -28,7 +28,7 @@ def update_auto(optimizer, model, x, t):
     # Passing the loss function (model) so that we don't have to call the model.zerograds() explicitly to reset the gradients in each iteration
     optimizer.update(model, x, t)
 
-def update_manual(optimizer, model, x, y):
+def update_manual(optimizer, model, x, t):
     model.zerograds()  # Reset the gradients from the previous iteration, since they are accumulated otherwise
     loss = model(x, t)  # Call the ___call__, i.e. forward pass method
     loss.backward()  # Compute the gradient, x will be updated with it holding the gradient value
