@@ -88,8 +88,8 @@ if __name__ == '__main__':
     print('Loaded MNIST')
     x_train, x_test, y_train, y_test = split_mnist(data, target, trainsize=60000)
     model = MLPClassifier(MLP())  # Alternatively, use the build-in classifier with L.Classifier(MLP()))
-    filename = 'mlp.model'
-    if args.load_model is not None:
+    filename = 'mlp.model'  # The filename of the model to load, or save
+    if load:
         print('Loading pretrained model...')
         try:
             serializers.load_hdf5(filename, model)
@@ -98,7 +98,7 @@ if __name__ == '__main__':
             print('OS error: {}'.format(err))
             print('Could not find a pretrained model. Starting from a new and randomly initialized model.')
     model = train(model, x_train, x_test, y_train, y_test, epochs=epochs, batchsize=batchsize)
-    if args.save_model is not None:
+    if save:
         print('Saving trained model...')
         serializers.save_hdf5(filename, model)
         print('Saved trained model {}'.format(filename))
