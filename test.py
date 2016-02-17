@@ -44,8 +44,8 @@ def evaluate_model(model, x_test, y_test, batchsize):
         loss = model(x, t)
         sum_loss += loss.data * batchsize
         sum_acc += model.accuracy.data * batchsize
-    mean_loss /= testsize
-    mean_acc /= testsize
+    mean_loss = sum_loss / testsize
+    mean_acc = sum_acc / testsize
     return mean_loss, mean_acc
 
 def load_mnist():
@@ -56,7 +56,7 @@ def load_mnist():
 
 def split_mnist(data, target, trainsize=60000):
     x_all = data.astype(np.float32) / 255
-    y_all = target.astype(np.float32) / 255
+    y_all = target.astype(np.int32)
     x_train, x_test = np.split(x_all, [trainsize])
     y_train, y_test = np.split(y_all, [trainsize])
     print('MNIST data (Number of pixels): {datasize}'.format(datasize=data.size))
